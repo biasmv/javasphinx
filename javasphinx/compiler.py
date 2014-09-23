@@ -47,6 +47,28 @@ class JavadocRestCompiler(object):
         for name, value in doc.params:
             output.add_line(':param %s: %s' % (name, self.__html_to_rst(value)))
 
+
+        if 'deprecated' in doc.tags:
+            # the sphinx deprecated tag and the JavaDoc deprecate tag differ
+            # in that the sphinx tag has a mandatory version argument, whereas
+            # the JavaDoc deprecated tag only has a version argument. 
+            # Try to find version-like string at the beginning and use that
+            # if it exists. Otherwise, fall back to hand written deprecation
+            # statement. It's better than discarding the deprecated tag 
+            # altogether
+            deprecated = self.__html_to_rst(''.join(doc.tags['deprecated']))
+            version, rest = self.__find_version(deprecated)
+            output.clear()
+            if version:
+                output.add_line('.. deprecated:: %s\n    %s' % (version, rest))
+            else:
+                output.add_line('Deprecated: %s' %rest)
+
+        if 'since' in doc.tags:
+            since = self.__html_to_rst(''.join(doc.tags['since']))
+            output.clear()
+            output.add_line('.. versionadded:: %s\n' % since)
+
         for exception in doc.throws:
             description = doc.throws[exception]
             output.add_line(':throws %s: %s' % (exception, self.__html_to_rst(description)))
@@ -62,6 +84,12 @@ class JavadocRestCompiler(object):
 
         return output
 
+    def __find_version(self, text):
+        start, _ = text.split(None, 1)
+        match = re.match(r'[Vv]?(\d+)(\.\d+)?(.\d+)?$', start)
+        if match:
+            return start, _
+        return None, text
     def __output_see(self, see):
         """ Convert the argument to a @see tag to rest """
 
